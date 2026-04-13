@@ -1,3 +1,6 @@
+/.env
+LM/.env
+
 # Python virtual environment
 .venv/
 venv/
