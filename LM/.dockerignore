@@ -1,0 +1,22 @@
+# 로컬 테스트 전용
+test_local.py
+requirements-dev.txt
+
+# 환경변수 (Lambda에서는 콘솔/CLI로 주입)
+.env
+
+# Python 가상환경 및 캐시
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Git
+.git/
+.gitignore
+
+# Aws
+/aws
+
+# 기타
+*.md
