@@ -33,7 +33,7 @@ def upsert_conversation(conversation_id: str | None, user_id: str | None = None)
 
 
 def fetch_history(conversation_id: str) -> list:
-    """해당 conversation의 이전 turn 최대 10개 가져오기."""
+    """해당 conversation의 이전 질문 최대 10개 가져오기."""
     sb = _get_supabase()
     if sb is None or not conversation_id:
         return []
@@ -93,7 +93,12 @@ def lambda_handler(event, context):
 
     # 과거 대화 내역과 이번 질문을 Gemini 형식에 맞게 변환
     history = fetch_history(conversation_id)
-    messages = []
+    messages = [
+        {
+            "role": "system",
+            "content": "답변은 항상 Markdown 형식으로 작성해 주세요. 제목, 목록, 강조 등 Markdown 문법을 적극 활용하세요.",
+        }
+    ]
     for turn in history:
         messages.append({"role": "user",      "content": build_content(turn["question"], turn.get("image_urls") or [])})
         messages.append({"role": "assistant", "content": turn["answer"]})
@@ -107,7 +112,12 @@ def lambda_handler(event, context):
         )
         answer = completion.choices[0].message.content
         insert_message(conversation_id, user_id, question, image_urls, answer)
-        return _response(200, {"answer": answer, "conversation_id": conversation_id})
+        
+        return _response(200, {
+            "answer": answer, 
+            "image_urls": [], 
+            "conversation_id": conversation_id
+        })
     except Exception as e:
         return _response(500, {"error": str(e)})
 
@@ -116,5 +126,5 @@ def _response(status_code: int, body: dict) -> dict:
     return {
         "statusCode": status_code,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body, ensure_ascii=False),
+        "body": body 
     }

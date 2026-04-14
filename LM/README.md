@@ -132,7 +132,8 @@ Content-Type: application/json
 
 ```jsonc
 {
-  "answer": "이 이미지는 ...",           // string — Gemini 답변
+  "answer": "이 이미지는 ...",           // string — Gemini 답변 (Markdown 형식)
+  "image_urls": [],                      // string[] — 현재 항상 빈 배열
   "conversation_id": "uuid-string"       // string — 현재/신규 대화 세션 ID (다음 턴에 재사용)
 }
 ```
@@ -206,6 +207,10 @@ body: JSON.stringify({
 - `conversation_id` 를 전달하지 않으면 새 대화 세션이 자동 생성되며, 응답의 `conversation_id` 를 다음 요청에 사용하면 됩니다.
 - `answer` 가 null인 레코드(저장 실패 등)는 히스토리에서 제외됩니다.
 
+## 응답 형식
+
+Gemini에게는 항상 **Markdown 형식**으로 답변하도록 시스템 프롬프트가 주입됩니다. `answer` 필드의 텍스트는 제목(`#`), 목록(`-`), 강조(`**`) 등 Markdown 문법을 포함할 수 있습니다.
+
 ---
 
 ## 로컬 개발
@@ -231,15 +236,20 @@ python test_local.py
 
 ## 배포 (Docker → AWS Lambda)
 
-```bash
-# 빌드
-docker build -t lm-service .
+`deploy.sh` 스크립트를 사용해 빌드·태그·ECR 푸시를 한 번에 수행합니다.
 
-# ECR 푸시 후 Lambda 이미지 업데이트
-aws ecr get-login-password | docker login --username AWS --password-stdin <ECR_URI>
-docker tag lm-service:latest <ECR_URI>/lm-service:latest
-docker push <ECR_URI>/lm-service:latest
+```bash
+# 사용법: ./deploy.sh <AWS_ACCOUNT_ID> <REGION> [FUNCTION_NAME]
+./deploy.sh 123456789012 ap-northeast-2 sci-snap/lm
 ```
+
+스크립트 내부 동작:
+
+1. ECR 로그인
+2. `linux/amd64` 플랫폼으로 Docker 이미지 빌드
+3. 이미지 태그 후 ECR에 푸시
+
+> Lambda 함수 신규 생성이 필요한 경우 스크립트 내 주석 처리된 `aws lambda create-function` 명령을 참고하세요.
 
 핸들러: `main.lambda_handler`
 

@@ -1,7 +1,6 @@
 """
 로컬 개발용 테스트 스크립트.
 venv에서 python test_local.py 로 실행.
-Docker 이미지에는 포함되지 않음.
 """
 import os
 import json
@@ -24,7 +23,7 @@ result1 = lambda_handler(
 )
 print(json.dumps(result1, ensure_ascii=False, indent=2))
 
-body1 = json.loads(result1["body"])
+body1 = result1["body"] 
 conversation_id = body1.get("conversation_id")
 print(f"생성된 conversation_id: {conversation_id}")
 

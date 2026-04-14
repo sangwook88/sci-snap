@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # 사용법: ./deploy.sh <AWS_ACCOUNT_ID> <REGION> [FUNCTION_NAME]
-# 예시:   ./deploy.sh 569475967027 ap-northeast-2 SCI-Snap
 
 set -euo pipefail
 
