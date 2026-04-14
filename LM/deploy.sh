@@ -25,9 +25,9 @@ aws ecr get-login-password --region "$REGION" \
 echo "=== 3. Docker 빌드 (linux/amd64 — Lambda 아키텍처) ==="
 docker build --platform linux/amd64 --provenance=false -t "${IMAGE_NAME}:latest" .
 
-# echo "=== 4. 태그 & ECR 푸시 ==="
-# docker tag "${IMAGE_NAME}:latest" "${ECR_REPO}:latest"
-# docker push "${ECR_REPO}:latest"
+echo "=== 4. 태그 & ECR 푸시 ==="
+docker tag "${IMAGE_NAME}:latest" "${ECR_REPO}:latest"
+docker push "${ECR_REPO}:latest"
 
 # echo "=== 5. Lambda 함수 업데이트 또는 생성 안내 ==="
 # if aws lambda get-function \
