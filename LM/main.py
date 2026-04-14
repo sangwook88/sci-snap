@@ -80,10 +80,10 @@ def lambda_handler(event, context):
     if isinstance(body, str):
         body = json.loads(body)
 
-    question        = body.get("question", "")
+    question        = body.get("question") or ""
     image_urls      = body.get("image_urls") or []
-    conversation_id = body.get("conversation_id")
-    user_id         = body.get("user_id")
+    conversation_id = body.get("conversation_id") or None
+    user_id         = body.get("user_id") or None
 
     # 이미지나 질문 둘 다 없으면 에러
     if not question and not image_urls:
