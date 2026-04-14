@@ -10,23 +10,35 @@ client = OpenAI(
 
 
 def lambda_handler(event, context):
-    # API Gateway 이벤트: event["body"] 에 JSON 문자열로 전달됨
+    # API Gateway 이벤트
     if "body" in event:
         body = event["body"]
         if isinstance(body, str):
             body = json.loads(body)
         question = body.get("question", "")
-    # 직접 Lambda 호출: event["question"] 으로 전달됨
+        image_urls = body.get("image_urls", [])  # Supabase JSONB 배열: ["url1", "url2", ...]
+    # 직접 Lambda 호출
     else:
         question = event.get("question", "")
+        image_urls = event.get("image_urls", [])
 
     if not question:
         return _response(400, {"error": "Missing 'question' field in request"})
 
+    # 멀티모달 이미지 추가
+    if image_urls:
+        content = [
+            {"type": "image_url", "image_url": {"url": url}}
+            for url in image_urls
+        ]
+        content.append({"type": "text", "text": question})
+    else:
+        content = question
+
     try:
         completion = client.chat.completions.create(
             model="gemini-3-flash-preview",
-            messages=[{"role": "user", "content": question}]
+            messages=[{"role": "user", "content": content}]
         )
         answer = completion.choices[0].message.content
         return _response(200, {"answer": answer})
