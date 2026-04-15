@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp /mnt/c/Users/safi2/Documents/GitHub/sci-snap/LM/db/client.py /mnt/c/Users/safi2/Documents/GitHub/sci-snap/LM/db/db.py)",
+      "Bash(rm /mnt/c/Users/safi2/Documents/GitHub/sci-snap/LM/db/client.py)"
+    ]
+  }
+}
