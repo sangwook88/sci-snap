@@ -1,2 +1,5 @@
 openai
 supabase
+PyMuPDF
+pdfplumber
+python-dotenv
