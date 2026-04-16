@@ -10,6 +10,8 @@ def lambda_handler(event, context):
 
     question        = body.get("question") or ""
     image_urls      = body.get("image_urls") or []
+    if isinstance(image_urls, str):
+        image_urls = [image_urls] if image_urls else []
     conversation_id = body.get("conversation_id") or None
     user_id         = body.get("user_id") or None
 
@@ -22,7 +24,8 @@ def lambda_handler(event, context):
     messages = [
         {
             "role": "system",
-            "content": "답변은 항상 Markdown 형식으로 작성해 주세요. 제목, 목록, 강조 등 Markdown 문법을 적극 활용하세요.",
+            "content": "답변은 항상 Markdown 형식으로 작성해 주세요. 제목, 목록, 강조 등 Markdown 문법을 적극 활용하세요.\
+                    질문에 이미지가 포함된 경우, 이미지 URL을 활용하여 답변에 이미지를 포함시켜 주세요."
         }
     ]
     for turn in history:

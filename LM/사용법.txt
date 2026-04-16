@@ -1,0 +1,23 @@
+로컬 실행 방법                                                                                                                                                                
+                                                                                                                                                                                  
+1. 레포 클론 후 LM 폴더로 이동                                                                                                                                                                                cd sci-snap/LM                                                                                           
+                                                                                                                                                                                
+2. 가상환경 생성 및 활성화                                                                                                                    
+# 생성                                   
+python -m venv .venv                                                                                                                                                            
+# 활성화 (Mac/Linux)                                                                                                                                                            
+source .venv/bin/activate                                                                                
+                                        
+# 활성화 (Windows)                                                                                                                                                              
+.venv\Scripts\activate
+                                                                                                                                                                                  
+3. 패키지 설치                                                                                           
+pip install -r requirements-dev.txt          
+
+4. 환경변수 파일 설정                                                                                                                                                           
+.env_example을 복사해서 .env 파일 만들기                                                                                                                                        
+cp .env_example .env                                                                                     
+.env 파일 열어서 Gemini API 키 입력:                                                                                                                                          
+GEMINI_API_KEY=GEMINI_API_KEY=AIzaSyAWduv2IaqYDRNHdr9h1W1Z2ZAWZzR9bVA                                                                           
+                                                                                                                                                                                
+5. 테스트 실행                                                                                                                                                                                                   python test_local.py       

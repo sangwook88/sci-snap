@@ -15,9 +15,12 @@ print("=== 첫 메시지 테스트 (이미지 포함) ===")
 result1 = lambda_handler(
     {
         "body": json.dumps({
-            "question": "다시 한번 말해줘",
+            "question": "답변은 아래의 포멧에서 괄호[ ]를 채워주세요 \n\
+                    이미지의 과학현상은 [ ]입니다.\n\                    \
+                    이미지에 대한 3줄 요약은 [ ]\n\
+                    이에 대한 상세 설명은 [ ]",
             "conversation_id": "31b73537-1f53-45a2-9f1d-fed18deef66e",
-            "image_urls": None,
+            "image_urls": "./7-1. 갈변된 사과.jpg",
         })
     },
     {},
