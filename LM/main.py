@@ -56,7 +56,7 @@ def lambda_handler(event, context):
 
     try:
         completion = client.chat.completions.create(
-            model="gemini-3-flash-preview",
+            model="gpt-4o",
             messages=messages
         )
         answer = completion.choices[0].message.content
