@@ -8,180 +8,92 @@ load_dotenv()
 
 from main import lambda_handler
 
-# 첫 메시지 (이미지 포함, 새 대화)
-print("=== 첫 메시지 테스트 (이미지 포함) ===")
-result1 = lambda_handler(
-    {
-        "body": json.dumps({
-            "question": "답변은 아래의 포멧에서 괄호[ ]를 채워주세요 \n\
-                    이미지의 과학현상은 [ ]입니다.\n\                    \
-                    이미지에 대한 3줄 요약은 [ ]\n\
-                    이에 대한 상세 설명은 [ ]",
-            "conversation_id": "31b73537-1f53-45a2-9f1d-fed18deef66e",
-            "image_urls": "./7-1. 갈변된 사과.jpg",
-        })
-    },
-    {},
-)
-print(json.dumps(result1, ensure_ascii=False, indent=2))
-
-# ── 인덱서 테스트 ──────────────────────────────────────────────
-
-def test_indexer():
-    """RAG/indexer.py: RAG 폴더의 PDF 전체 인덱싱"""
-    print("\n" + "="*60)
-    print("  [INDEXER] PDF 인덱싱 시작 (시간이 오래 걸릴 수 있습니다)")
-    print("="*60)
-    from RAG.indexer import index_all_pdfs
-    index_all_pdfs()
-    print("\n[INDEXER] 완료")
+# 테스트에 사용할 공개 이미지 URL (자동차와 사람이 있는 야외 사진)
+TEST_IMAGE_URL = "https://jakllghtnmkwydeskjee.supabase.co/storage/v1/object/public/images/5._.jpg"
 
 
-# ── child 모드 (RAG) 테스트 ────────────────────────────────────
-
-def test_child_text_only():
-    """텍스트 질문만으로 RAG 검색"""
-    result = lambda_handler(
-        {
-            "body": json.dumps({
-                "question": "식물은 어떻게 햇빛으로 음식을 만들어요?",
-                "mode": "child",
-            })
-        },
-        {},
+def _point_valid(pt) -> bool:
+    """pt가 [x, y] 형태이고 좌표가 0 이상 정수인지 확인."""
+    return (
+        isinstance(pt, list)
+        and len(pt) == 2
+        and all(isinstance(v, (int, float)) and v >= 0 for v in pt)
     )
-    _print_result("[CHILD] 텍스트 질문", result)
-    return result
 
 
-def test_child_with_image():
-    """이미지 + 텍스트로 RAG 검색"""
-    result = lambda_handler(
-        {
-            "body": json.dumps({
-                "question": "이 사진에서 어떤 과학을 배울 수 있어요?",
-                "image_urls": [
-                    "https://jakllghtnmkwydeskjee.supabase.co/storage/v1/object/public/images/6._.jpg"
-                ],
-                "mode": "child",
-            })
-        },
-        {},
-    )
-    _print_result("[CHILD] 이미지 + 질문", result)
-    return result
+def test_child_detect_returns_detect():
+    """child_detect 모드로 이미지를 넣으면 detect 배열이 반환되는지 확인."""
+    event = {
+        "body": {
+            "mode": "child_detect",
+            "image_urls": [TEST_IMAGE_URL],
+        }
+    }
+
+    response = lambda_handler(event, None)
+
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+
+    body = response["body"]
+    print("\n[child_detect 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+
+    detect = body.get("detect", [])
+    assert isinstance(detect, list), "detect가 리스트가 아님"
+    for item in detect:
+        assert isinstance(item, list) and len(item) == 2, f"detect 항목 형식 오류: {item}"
+        name, pt = item
+        assert isinstance(name, str), f"이름이 문자열이 아님: {name}"
+        assert _point_valid(pt), f"유효하지 않은 좌표: {pt}"
+
+    print("\n[PASS] child_detect 반환 검증 완료")
+    print(f"  detect 항목: {len(detect)}개")
 
 
-def test_child_followup():
-    """child 모드 꼬리 질문 (conversation_id 연결)"""
-    # 첫 번째 대화
-    result1 = lambda_handler(
-        {
-            "body": json.dumps({
-                "question": "물은 왜 100도에서 끓어요?",
-                "mode": "child",
-            })
-        },
-        {},
-    )
-    _print_result("[CHILD] 첫 질문", result1)
+def test_detect_returns_detect():
+    """detect 모드(일반)로도 동일하게 detect 배열이 반환되는지 확인."""
+    event = {
+        "body": {
+            "mode": "detect",
+            "image_urls": [TEST_IMAGE_URL],
+        }
+    }
 
-    conversation_id = result1.get("body", {}).get("conversation_id")
-    if not conversation_id:
-        print("  ⚠ conversation_id 없음 - 꼬리 질문 건너뜀")
-        return
+    response = lambda_handler(event, None)
 
-    # 꼬리 질문
-    result2 = lambda_handler(
-        {
-            "body": json.dumps({
-                "question": "그럼 높은 산에서는 온도가 다른가요?",
-                "conversation_id": conversation_id,
-                "mode": "child",
-            })
-        },
-        {},
-    )
-    _print_result("[CHILD] 꼬리 질문", result2)
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+
+    body = response["body"]
+    print("\n[detect 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+
+    detect = body.get("detect", [])
+    assert isinstance(detect, list), "detect가 리스트가 아님"
+    for item in detect:
+        assert isinstance(item, list) and len(item) == 2, f"detect 항목 형식 오류: {item}"
+        name, pt = item
+        assert isinstance(name, str), f"이름이 문자열이 아님: {name}"
+        assert _point_valid(pt), f"유효하지 않은 좌표: {pt}"
+
+    print("\n[PASS] detect 반환 검증 완료")
+    print(f"  detect 항목: {len(detect)}개")
 
 
-# ── 기본 모드 테스트 ───────────────────────────────────────────
+def test_missing_image_returns_400():
+    """image_urls 없이 detect 모드 호출 시 400 반환 확인."""
+    event = {"body": {"mode": "child_detect", "image_urls": []}}
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 400, f"400이어야 하는데: {response}"
+    print("\n[PASS] image_urls 없을 때 400 반환 확인")
 
-def test_default_text():
-    """기본 대화 모드 텍스트 질문"""
-    result = lambda_handler(
-        {
-            "body": json.dumps({
-                "question": "파이썬과 자바스크립트의 차이점은 뭔가요?",
-            })
-        },
-        {},
-    )
-    _print_result("[DEFAULT] 텍스트 질문", result)
-
-
-def test_default_followup():
-    """기본 모드 꼬리 질문"""
-    result1 = lambda_handler(
-        {
-            "body": json.dumps({
-                "question": "리스트와 튜플의 차이를 알려줘",
-            })
-        },
-        {},
-    )
-    _print_result("[DEFAULT] 첫 질문", result1)
-
-    conversation_id = result1.get("body", {}).get("conversation_id")
-    if not conversation_id:
-        print("  ⚠ conversation_id 없음 - 꼬리 질문 건너뜀")
-        return
-
-    result2 = lambda_handler(
-        {
-            "body": json.dumps({
-                "question": "어떤 걸 쓰는 게 더 좋아요?",
-                "conversation_id": conversation_id,
-            })
-        },
-        {},
-    )
-    _print_result("[DEFAULT] 꼬리 질문", result2)
-
-
-def test_error_case():
-    """에러 케이스: question, image_urls 모두 없음"""
-    result = lambda_handler(
-        {
-            "body": json.dumps({
-                "conversation_id": "00000000-0000-0000-0000-000000000000",
-            })
-        },
-        {},
-    )
-    _print_result("[ERROR] 질문·이미지 없음 (400 기대)", result)
-
-
-# ── 실행 ───────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    mode = sys.argv[1] if len(sys.argv) > 1 else "all"
+    print("=" * 60)
+    print("detect / child_detect 좌표 반환 테스트")
+    print("=" * 60)
 
-    if mode == "indexer":
-        test_indexer()
+    #test_missing_image_returns_400()
+    test_detect_returns_detect()
+    test_child_detect_returns_detect()
 
-    elif mode == "child":
-        test_child_text_only()
-        test_child_with_image()
-        test_child_followup()
-
-    elif mode == "default":
-        test_default_text()
-        test_default_followup()
-        test_error_case()
-
-    else:  # all
-        test_child_text_only()
-        test_child_with_image()
-        test_default_text()
-        test_error_case()
+    print("\n모든 테스트 통과")

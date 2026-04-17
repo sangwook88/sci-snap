@@ -2,6 +2,8 @@ import json
 from db.db import upsert_conversation, fetch_history, insert_message
 from llm.gemini import build_content
 from RAG.query import query as rag_query, _get_openai
+from object_detection.detector import detect
+from object_detection.analyzer import analyze as detect_analyze
 
 
 def lambda_handler(event, context):
@@ -17,13 +19,25 @@ def lambda_handler(event, context):
     user_id         = body.get("user_id") or None
     mode            = body.get("mode") or "default"
 
+    # detect / child_detect: 사물 탐지 + 과학 현상 분석
+    if mode in ("detect", "child_detect"):
+        if not image_urls:
+            return _response(400, {"error": "image_urls is required for detect mode"})
+        try:
+            image_url = image_urls[0]
+            objects = detect(image_url)
+            result = detect_analyze(image_url, objects, mode=mode)
+            return _response(200, result)
+        except Exception as e:
+            return _response(500, {"error": str(e)})
+
     if not question and not image_urls:
         return _response(400, {"error": "Question and image_urls are both empty"})
 
     conversation_id = upsert_conversation(conversation_id, user_id)
     history = fetch_history(conversation_id)
 
-    # ── child 모드: 어린이 교과서 RAG ──
+    # child: 교과서 RAG 파이프라인
     if mode == "child":
         try:
             result = rag_query(
@@ -44,7 +58,7 @@ def lambda_handler(event, context):
         except Exception as e:
             return _response(500, {"error": str(e)})
 
-    # ── 기본 모드 ──
+    # default: Gemini 직접 호출
     messages = [
         {
             "role": "system",

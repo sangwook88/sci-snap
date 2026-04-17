@@ -1,7 +1,3 @@
 openai
 supabase
-dotenv
-ultralytics
-PyMuPDF
-pdfplumber
-python-dotenv
+Pillow

@@ -10,7 +10,7 @@ client = OpenAI(
 
 
 def _to_url(image_url: str) -> str:
-    """로컬 파일 경로이면 base64 data URL로 변환, 아니면 그대로 반환."""
+    """로컬 파일이면 base64 data URL로 변환."""
     if image_url.startswith(("http://", "https://", "gs://", "data:")):
         return image_url
     if os.path.isfile(image_url):
@@ -23,7 +23,7 @@ def _to_url(image_url: str) -> str:
 
 
 def build_content(question: str, image_urls: list):
-    """Gemini content 형식으로 변환."""
+    """텍스트+이미지를 OpenAI content 형식으로 변환."""
     if image_urls:
         content = [{"type": "image_url", "image_url": {"url": _to_url(url)}} for url in image_urls]
         if question:
