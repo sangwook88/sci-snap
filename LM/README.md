@@ -20,7 +20,7 @@ AWS Lambda (main.lambda_handler)
 
 | mode | 동작 |
 |---|---|
-| `default` | 대화 이력 + 질문을 Gemini에 직접 전달, Markdown 응답 |
+| `default` | 대화 이력 + 질문을 GPT-4o에 직접 전달, Markdown 응답 |
 | `child` | RAG 파이프라인 — 교과서 검색 후 어린이 눈높이 응답 |
 | `detect` | GPT-4o Vision으로 사물 탐지 + 과학 현상 좌표 반환 |
 | `child_detect` | detect + 교과서 RAG 기반 어린이 과학 현상 분석 |
@@ -34,17 +34,26 @@ AWS Lambda (main.lambda_handler)
   "image_urls": ["https://..."],
   "conversation_id": "uuid (없으면 신규 생성)",
   "user_id": "optional",
-  "mode": "default | child | detect | child_detect"
+  "mode": "default | child | detect | child_detect",
+  "word": "탐구할 단어 (child 모드 전용, 선택)"
 }
 ```
 
-**default / child 응답**
+**default 응답**
 ```json
 {
   "answer": "...",
   "conversation_id": "uuid",
-  "curiosity_hooks": ["..."],   // child 모드 전용
-  "curriculum_refs": [...]      // child 모드 전용
+  "curiosity_hooks": ["..."]
+}
+```
+
+**child 응답**
+```json
+{
+  "answer": "...",
+  "conversation_id": "uuid",
+  "curiosity_hooks": ["..."]
 }
 ```
 

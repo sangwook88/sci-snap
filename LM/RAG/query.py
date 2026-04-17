@@ -125,7 +125,7 @@ def hybrid_search(analysis: dict, match_count: int = 5) -> list[dict]:
 
     query_embedding = _get_openai().embeddings.create(
         model="text-embedding-3-large",
-        input=query_text[:8000],
+        input=query_text[:8000],  # text-embedding-3-large 입력 토큰 한도 대비 슬라이싱
         dimensions=512,
     ).data[0].embedding
 
@@ -146,6 +146,35 @@ def hybrid_search(analysis: dict, match_count: int = 5) -> list[dict]:
         return []
 
 
+# Step 2-b: 일반인 관점 curiosity_hooks 생성
+
+def generate_curiosity_hooks(question: str, image_urls: list[str] = None) -> list[str]:
+    """일반인이 궁금해할 만한 과학적 호기심 질문 3개를 생성."""
+    image_urls = image_urls or []
+    content = []
+
+    prompt = f"""다음 질문/사진을 보고, 과학에 관심 있는 일반 성인이 자연스럽게 궁금해할 만한 질문 3개를 만들어주세요.
+전문 지식이 없어도 흥미를 느낄 수 있는 질문이어야 합니다.
+JSON으로만 반환: {{"curiosity_hooks": ["질문1", "질문2", "질문3"]}}
+
+질문: {question}"""
+
+    content.append({"type": "text", "text": prompt})
+    for url in image_urls:
+        content.append({"type": "image_url", "image_url": {"url": url}})
+
+    resp = _get_openai().chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": content}],
+        response_format={"type": "json_object"},
+        max_tokens=300,
+    )
+    try:
+        return json.loads(resp.choices[0].message.content).get("curiosity_hooks", [])
+    except (json.JSONDecodeError, AttributeError):
+        return []
+
+
 # Step 3: 어린이 눈높이 응답 생성
 
 CHILD_SYSTEM_PROMPT = """당신은 어린이 과학 교육 전문가입니다.
@@ -155,9 +184,8 @@ CHILD_SYSTEM_PROMPT = """당신은 어린이 과학 교육 전문가입니다.
 1. "와! ~한 거 알아?" 같은 호기심 유발 어투 사용
 2. 어려운 용어는 쉬운 비유로 설명
 3. "직접 해볼 수 있는 실험" 하나를 반드시 포함
-4. 한국/미국/유럽 교과서의 관점 차이가 있으면 재미있게 비교
-5. 답변은 Markdown 형식으로 작성
-6. 응답은 간결하되 핵심 내용은 빠짐없이 전달"""
+4. 답변은 Markdown 형식으로 작성
+5. 응답은 간결하되 핵심 내용은 빠짐없이 전달"""
 
 
 def generate_child_response(
@@ -166,8 +194,10 @@ def generate_child_response(
     analysis: dict,
     search_results: list[dict],
     history: list[dict] = None,
+    word: str = "",
 ) -> str:
     """교과서 컨텍스트 기반 어린이 눈높이 응답 생성."""
+    # 검색 결과를 프롬프트 컨텍스트 문자열로 조합
     context_parts = []
     for r in search_results:
         part = f"[교과서 내용]: {r['content']}"
@@ -192,15 +222,21 @@ def generate_child_response(
             messages.append({"role": "user", "content": user_content})
             messages.append({"role": "assistant", "content": turn["answer"]})
 
+    word_line = f"탐구할 단어: {word}\n" if word else ""
+    default_question = (
+        f"'{word}'에 대해 어린이가 이해할 수 있게 설명해주세요." if word
+        else "이 사진에서 어떤 과학을 배울 수 있나요?"
+    )
+
     user_prompt = f"""사진 분석 결과:
 - 인식된 사물: {', '.join(analysis.get('objects', []))}
 - 과학 개념: {', '.join(analysis.get('science_concepts', []))}
 - 호기심 질문: {', '.join(analysis.get('curiosity_hooks', []))}
-
+{word_line}
 관련 교과서 내용:
 {context}
 
-사용자 질문: {question if question else '이 사진에서 어떤 과학을 배울 수 있나요?'}
+사용자 질문: {question if question else default_question}
 
 이 사진에서 어린이가 흥미를 가질 만한 과학 이야기를 해주세요. 내용을 다 설명하고, 요약 설명 단락을 뒤에 추가해주세요."""
 
@@ -225,6 +261,7 @@ def query(
     question: str = "",
     image_urls: list[str] = None,
     history: list[dict] = None,
+    word: str = "",
 ) -> dict:
     """
     RAG 파이프라인 진입점.
@@ -234,21 +271,34 @@ def query(
     """
     image_urls = image_urls or []
 
+    # word가 있으면 effective_question 앞에 붙여 RAG 검색 품질 향상
+    if word and not question:
+        effective_question = f"{word}에 대해 설명해주세요"
+    elif word and question:
+        effective_question = f"[{word}] {question}"
+    else:
+        effective_question = question
+
     if image_urls:
-        analysis = analyze_photo(image_urls, question)
-    elif question:
-        analysis = analyze_text_only(question)
+        analysis = analyze_photo(image_urls, effective_question)
+    elif effective_question:
+        analysis = analyze_text_only(effective_question)
     else:
         return {"answer": "사진이나 질문을 보내주세요!", "curiosity_hooks": [], "curriculum_refs": []}
+
+    # word가 있으면 RAG 검색 키워드 앞에 삽입
+    if word:
+        analysis.setdefault("search_keywords_ko", []).insert(0, word)
 
     search_results = hybrid_search(analysis)
 
     answer = generate_child_response(
-        question=question,
+        question=effective_question,
         image_urls=image_urls,
         analysis=analysis,
         search_results=search_results,
         history=history,
+        word=word,
     )
 
     curriculum_refs = []
