@@ -20,4 +20,9 @@ cp .env_example .env
 .env 파일 열어서 Gemini API 키 입력:                                                                                                                                          
 GEMINI_API_KEY=GEMINI_API_KEY=AIzaSyAWduv2IaqYDRNHdr9h1W1Z2ZAWZzR9bVA                                                                           
                                                                                                                                                                                 
-5. 테스트 실행                                                                                                                                                                                                   python test_local.py       
+5. 테스트 실행      
+python test_local.py       
+
+---
+
+Object detection 정보
