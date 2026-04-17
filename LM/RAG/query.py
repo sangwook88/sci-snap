@@ -61,8 +61,8 @@ def analyze_photo(image_urls: list[str], question: str = "") -> dict:
     for url in image_urls:
         content.append({"type": "image_url", "image_url": {"url": url}})
 
-    resp = _get_gemini().chat.completions.create(
-        model="gemini-3-flash-preview",
+    resp = _get_openai().chat.completions.create(
+        model="gpt-4o",
         messages=[{"role": "user", "content": content}],
         response_format={"type": "json_object"},
         max_tokens=500,
@@ -85,8 +85,8 @@ def analyze_photo(image_urls: list[str], question: str = "") -> dict:
 
 def analyze_text_only(question: str) -> dict:
     """텍스트만으로 과학 개념 분석"""
-    resp = _get_gemini().chat.completions.create(
-        model="gemini-3-flash-preview",
+    resp = _get_openai().chat.completions.create(
+        model="gpt-4o",
         messages=[{
             "role": "user",
             "content": f"""다음 질문을 분석하여 JSON으로 반환해주세요:
@@ -223,8 +223,8 @@ def generate_child_response(
     else:
         messages.append({"role": "user", "content": user_prompt})
 
-    resp = _get_gemini().chat.completions.create(
-        model="gemini-3-flash-preview",
+    resp = _get_openai().chat.completions.create(
+        model="gpt-4o",
         messages=messages,
     )
     return resp.choices[0].message.content
