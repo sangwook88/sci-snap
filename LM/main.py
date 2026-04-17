@@ -1,7 +1,7 @@
 import json
 from db.db import upsert_conversation, fetch_history, insert_message
-from llm.gemini import client, build_content
-from RAG.query import query as rag_query
+from llm.gemini import build_content
+from RAG.query import query as rag_query, _get_openai
 
 
 def lambda_handler(event, context):
@@ -46,7 +46,7 @@ def lambda_handler(event, context):
     messages = [
         {
             "role": "system",
-            "content": "답변은 항상 Markdown 형식으로 작성해 주세요. 제목, 목록, 강조 등 Markdown 문법을 적극 활용하세요.",
+            "content": "항상 한국어로 답변하세요. 답변은 Markdown 형식으로 작성하고, 제목·목록·강조 등 Markdown 문법을 적극 활용하세요.",
         }
     ]
     for turn in history:
@@ -55,7 +55,7 @@ def lambda_handler(event, context):
     messages.append({"role": "user", "content": build_content(question, image_urls)})
 
     try:
-        completion = client.chat.completions.create(
+        completion = _get_openai().chat.completions.create(
             model="gpt-4o",
             messages=messages
         )
