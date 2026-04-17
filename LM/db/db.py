@@ -12,7 +12,7 @@ def _get_supabase():
 
 
 def upsert_conversation(conversation_id: str | None, user_id: str | None = None) -> str:
-    """대화 id 없으면 생성, 있으면 updated_at 갱신."""
+    """대화 없으면 생성, 있으면 updated_at 갱신 후 id 반환."""
     sb = _get_supabase()
     if sb is None:
         raise RuntimeError("Supabase client not initialized")
@@ -26,7 +26,7 @@ def upsert_conversation(conversation_id: str | None, user_id: str | None = None)
 
 
 def fetch_history(conversation_id: str) -> list:
-    """해당 conversation의 이전 질문 최대 10개 가져오기."""
+    """대화 이력 최대 10개 조회."""
     sb = _get_supabase()
     if sb is None or not conversation_id:
         return []
@@ -43,7 +43,7 @@ def fetch_history(conversation_id: str) -> list:
 
 
 def insert_message(conversation_id: str, user_id: str | None, question: str, image_urls: list, answer: str):
-    """질문 DB에 저장"""
+    """질문·답변 저장."""
     sb = _get_supabase()
     if sb is None:
         return
