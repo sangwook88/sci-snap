@@ -10,6 +10,7 @@ WORKDIR /var/task
 COPY --from=builder /build/packages .
 COPY db/ db/
 COPY llm/ llm/
+COPY RAG/ RAG/
 COPY main.py .
 
 # 실행 시 main.py를 직접 실행할 수 있도록 핸들러 지정
