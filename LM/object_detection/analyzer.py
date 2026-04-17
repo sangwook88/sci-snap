@@ -44,17 +44,28 @@ def _get_image_size(image_url: str) -> tuple[int, int]:
     return img.size
 
 
-def _rag_context(labels: list[str]) -> str:
-    """탐지된 사물 레이블로 교과서 검색."""
+def _rag_search(labels: list[str]) -> tuple[str, list[dict]]:
+    """탐지된 사물 레이블로 교과서 검색. (context_str, curriculum_refs) 반환."""
     if not labels:
-        return ""
+        return "", []
     analysis = {
         "search_keywords_ko": labels,
         "search_keywords_en": labels,
         "science_concepts": [],
     }
     results = hybrid_search(analysis, match_count=4)
-    return "\n---\n".join(r["content"] for r in results) if results else ""
+    if not results:
+        return "", []
+    context = "\n---\n".join(r["content"] for r in results)
+    curriculum_refs = [
+        {
+            "source": f"{r.get('metadata', {}).get('curriculum', 'KR')}_초등{r.get('metadata', {}).get('grade_level', '?')}",
+            "page": r.get("metadata", {}).get("source_page"),
+            "similarity": r.get("similarity"),
+        }
+        for r in results
+    ]
+    return context, curriculum_refs
 
 
 CHILD_DETECT_SYSTEM = """당신은 초등학교 과학 교육 전문가입니다.
@@ -99,7 +110,11 @@ def analyze(
         {"detect": [["이름", [x, y]], ...]}
     """
     labels = [obj[0] for obj in objects]
-    rag_context = _rag_context(labels) if mode == "child_detect" else ""
+    curriculum_refs: list[dict] = []
+    if mode == "child_detect":
+        rag_context, curriculum_refs = _rag_search(labels)
+    else:
+        rag_context = ""
     system_prompt = CHILD_DETECT_SYSTEM if mode == "child_detect" else DEFAULT_DETECT_SYSTEM
 
     try:
@@ -142,4 +157,4 @@ def analyze(
         if isinstance(x, (int, float)) and isinstance(y, (int, float)):
             detect_out.append([p["name"], [int(x), int(y)]])
 
-    return {"detect": detect_out}
+    return {"detect": detect_out, "curriculum_refs": curriculum_refs}
