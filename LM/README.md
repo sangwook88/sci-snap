@@ -123,13 +123,9 @@ python test_local.py
 ## Docker 빌드 및 배포
 
 ```bash
-# 이미지 빌드 (프로젝트 루트에서 실행)
-docker build -f LM/Dockerfile -t sci-snap-lm LM/
-
-# AWS ECR 푸시 후 Lambda에 연결
-aws ecr get-login-password | docker login --username AWS --password-stdin <ECR_URI>
-docker tag sci-snap-lm:latest <ECR_URI>/sci-snap-lm:latest
-docker push <ECR_URI>/sci-snap-lm:latest
+# 이미지 빌드 후 배포
+./deploy.sh <AWS_ACCOUNT_ID> <REGION> [FUNCTION_NAME] 으로 Amazon ECR에 자동 배포. ( AWS Configure로 로그인 체크 )
+예시 ) ./deploy.sh 0000000000 ap-northeast-2 SCI-Snap
 ```
 
 ## RAG 상세
