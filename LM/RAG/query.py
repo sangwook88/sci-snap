@@ -187,6 +187,65 @@ CHILD_SYSTEM_PROMPT = """당신은 어린이 과학 교육 전문가입니다.
 4. 답변은 Markdown 형식으로 작성
 5. 응답은 간결하되 핵심 내용은 빠짐없이 전달"""
 
+CHILD_CHAT_SYSTEM_PROMPT = """당신은 어린이 과학 교육 전문가입니다.
+어린이와 편안하게 대화하며 과학에 대한 호기심을 자연스럽게 이끌어냅니다.
+
+규칙:
+1. 어린이가 보낸 말에 자연스럽게 맞장구치고 대화를 이어가세요
+2. 이전 대화 내용이 있다면 그 주제를 바탕으로 응답하세요
+3. 과학 이야기를 강요하지 말고, 대화 흐름에 맞게 자연스럽게 연결하세요
+4. 대화 기록이 없고 질문이 모호하면, 오늘 어떤 것이 궁금한지 친근하게 물어보세요
+5. 항상 한국어로 답변하세요"""
+
+
+def classify_intent(question: str) -> str:
+    """
+    질문이 과학 탐구인지 일반 대화인지 분류.
+    Returns: 'science' | 'chat'
+    """
+    resp = _get_openai().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{
+            "role": "user",
+            "content": (
+                f'다음 입력의 의도를 분류해주세요.\n입력: "{question}"\n\n'
+                '- 사물 이름, 과학 개념, 자연현상, 원리를 탐색하려는 입력이면 "science" (예: "마우스", "스피커", "빛", "전기")\n'
+                '- 인사, 상태 확인, 대화성 표현이면 "chat" (예: "너뭐해", "안녕", "이게뭐야", "심심해")\n'
+                '단어 하나라도 사물/개념 이름이면 반드시 "science"로 분류하세요.\n\n'
+                f'JSON으로만 반환: {{"intent": "science"}} 또는 {{"intent": "chat"}}'
+            ),
+        }],
+        response_format={"type": "json_object"},
+        max_tokens=20,
+    )
+    try:
+        return json.loads(resp.choices[0].message.content).get("intent", "science")
+    except Exception:
+        return "science"
+
+
+def generate_child_chat_response(question: str, history: list[dict] = None) -> str:
+    """대화 맥락 기반 어린이 응답 (RAG 없이)."""
+    messages = [{"role": "system", "content": CHILD_CHAT_SYSTEM_PROMPT}]
+
+    if history:
+        for turn in history:
+            user_content = turn["question"]
+            if turn.get("image_urls"):
+                user_content = [{"type": "text", "text": turn["question"] or ""}]
+                for url in turn["image_urls"]:
+                    user_content.append({"type": "image_url", "image_url": {"url": url}})
+            messages.append({"role": "user", "content": user_content})
+            messages.append({"role": "assistant", "content": turn["answer"]})
+
+    messages.append({"role": "user", "content": question or "안녕!"})
+
+    resp = _get_openai().chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+    return resp.choices[0].message.content
+
 
 def generate_child_response(
     question: str,
@@ -278,6 +337,13 @@ def query(
         effective_question = f"[{word}] {question}"
     else:
         effective_question = question
+
+    # 이미지·word 없이 텍스트만 있을 때 의도 분류 → 일반 대화면 RAG 생략
+    if not image_urls and not word and effective_question:
+        intent = classify_intent(effective_question)
+        if intent == "chat":
+            answer = generate_child_chat_response(effective_question, history)
+            return {"answer": answer, "curiosity_hooks": [], "curriculum_refs": []}
 
     if image_urls:
         analysis = analyze_photo(image_urls, effective_question)
