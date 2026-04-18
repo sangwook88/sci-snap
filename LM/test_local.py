@@ -1,58 +1,183 @@
-"""
-로컬 개발용 테스트 스크립트.
-venv에서 python test_local.py 로 실행.
-"""
-import os
+# lambda_handler 로컬 통합 테스트
 import json
+import os
+import sys
 from dotenv import load_dotenv
 
-load_dotenv()  # 환경변수 로드
+load_dotenv()
 
 from main import lambda_handler
 
-# 첫 메시지 (이미지 포함, 새 대화)
-print("=== 첫 메시지 테스트 (이미지 포함) ===")
-result1 = lambda_handler(
-    {
-        "body": json.dumps({
-            "question": "답변은 아래의 포멧에서 괄호[ ]를 채워주세요 \n\
-                    이미지의 과학현상은 [ ]입니다.\n\                    \
-                    이미지에 대한 3줄 요약은 [ ]\n\
-                    이에 대한 상세 설명은 [ ]",
-            "conversation_id": "31b73537-1f53-45a2-9f1d-fed18deef66e",
-            "image_urls": "./7-1. 갈변된 사과.jpg",
-        })
-    },
-    {},
-)
-print(json.dumps(result1, ensure_ascii=False, indent=2))
+TEST_IMAGE_URL = "https://jakllghtnmkwydeskjee.supabase.co/storage/v1/object/public/images/5._.jpg"
 
-# body1 = result1["body"] 
-# conversation_id = body1.get("conversation_id")
-# print(f"생성된 conversation_id: {conversation_id}")
 
-# # 후속 메시지 (이미지 없음, 같은 대화)
-# print("\n=== 후속 메시지 테스트 (텍스트만) ===")
-# result2 = lambda_handler(
-#     {
-#         "body": json.dumps({
-#             "question": "앞의 이미지와 이 이미지의 공통점은 뭐에요?",
-#             "image_urls": ["https://jakllghtnmkwydeskjee.supabase.co/storage/v1/object/public/images/6._.jpg"],
-#             "conversation_id": conversation_id,
-#         })
-#     },
-#     {},
-# )
-# print(json.dumps(result2, ensure_ascii=False, indent=2))
+def _point_valid(pt) -> bool:
+    return (
+        isinstance(pt, list)
+        and len(pt) == 2
+        and all(isinstance(v, (int, float)) and v >= 0 for v in pt)
+    )
 
-# # 에러 케이스 (question, image_urls 모두 없음)
-# print("\n=== 에러 케이스 테스트 (질문·이미지 없음) ===")
-# result3 = lambda_handler(
-#     {
-#         "body": json.dumps({
-#             "conversation_id": conversation_id,
-#         })
-#     },
-#     {},
-# )
-# print(json.dumps(result3, ensure_ascii=False, indent=2))
+
+# ──────────────────────────── detect / child_detect ────────────────────────────
+
+def test_child_detect_returns_detect():
+    """child_detect 모드로 이미지를 넣으면 detect 배열이 반환되는지 확인."""
+    event = {"body": {"mode": "child_detect", "image_urls": [TEST_IMAGE_URL]}}
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+    body = response["body"]
+    print("\n[child_detect 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+    detect = body.get("detect", [])
+    assert isinstance(detect, list), "detect가 리스트가 아님"
+    for item in detect:
+        assert isinstance(item, list) and len(item) == 2, f"detect 항목 형식 오류: {item}"
+        name, pt = item
+        assert isinstance(name, str), f"이름이 문자열이 아님: {name}"
+        assert _point_valid(pt), f"유효하지 않은 좌표: {pt}"
+    print(f"\n[PASS] child_detect 반환 검증 완료 — detect 항목: {len(detect)}개")
+
+
+def test_detect_returns_detect():
+    """detect 모드(일반)로도 detect 배열이 반환되는지 확인."""
+    event = {"body": {"mode": "detect", "image_urls": [TEST_IMAGE_URL]}}
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+    body = response["body"]
+    print("\n[detect 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+    detect = body.get("detect", [])
+    assert isinstance(detect, list), "detect가 리스트가 아님"
+    for item in detect:
+        assert isinstance(item, list) and len(item) == 2, f"detect 항목 형식 오류: {item}"
+        name, pt = item
+        assert isinstance(name, str), f"이름이 문자열이 아님: {name}"
+        assert _point_valid(pt), f"유효하지 않은 좌표: {pt}"
+    print(f"\n[PASS] detect 반환 검증 완료 — detect 항목: {len(detect)}개")
+
+
+def test_detect_missing_image_returns_400():
+    """image_urls 없이 detect 모드 호출 시 400 반환 확인."""
+    event = {"body": {"mode": "child_detect", "image_urls": []}}
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 400, f"400이어야 하는데: {response}"
+    print("\n[PASS] detect 모드에서 image_urls 없을 때 400 반환 확인")
+
+
+# ──────────────────────────── default 모드 ────────────────────────────
+
+def test_default_mode_with_question():
+    """default 모드 — 텍스트 질문만 보내면 answer가 반환되는지 확인."""
+    event = {
+        "body": {
+            "mode": "default",
+            "question": "빛이 왜 직진하나요?",
+        }
+    }
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+    body = response["body"]
+    print("\n[default 텍스트 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+    assert "answer" in body, "answer 키가 없음"
+    assert isinstance(body["answer"], str) and body["answer"], "answer가 비어있음"
+    assert "conversation_id" in body, "conversation_id 키가 없음"
+    print("\n[PASS] default 모드 텍스트 응답 확인")
+
+
+def test_default_mode_with_image_and_question():
+    """default 모드 — 이미지 + 질문 조합으로 answer가 반환되는지 확인."""
+    event = {
+        "body": {
+            "mode": "default",
+            "question": "이 사진에서 무엇이 보이나요?",
+            "image_urls": [TEST_IMAGE_URL],
+        }
+    }
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+    body = response["body"]
+    print("\n[default 이미지+질문 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+    assert "answer" in body and body["answer"], "answer가 비어있음"
+    print("\n[PASS] default 모드 이미지+질문 응답 확인")
+
+
+def test_default_mode_missing_inputs_returns_400():
+    """default 모드에서 question·image_urls 모두 없으면 400 반환 확인."""
+    event = {"body": {"mode": "default"}}
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 400, f"400이어야 하는데: {response}"
+    print("\n[PASS] default 모드 입력 없을 때 400 반환 확인")
+
+
+# ──────────────────────────── child 모드 (RAG) ────────────────────────────
+
+def test_child_mode_with_question():
+    """child 모드 — 텍스트 질문으로 RAG 파이프라인이 동작하는지 확인."""
+    event = {
+        "body": {
+            "mode": "child",
+            "question": "왜 하늘은 파란색인가요?",
+        }
+    }
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+    body = response["body"]
+    print("\n[child 질문 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+    assert "answer" in body and body["answer"], "answer가 비어있음"
+    assert "conversation_id" in body, "conversation_id 키가 없음"
+    assert "curiosity_hooks" in body, "curiosity_hooks 키가 없음"
+    assert isinstance(body["curiosity_hooks"], list), "curiosity_hooks가 리스트가 아님"
+    print("\n[PASS] child 모드 질문 응답 확인")
+
+
+def test_child_mode_with_word():
+    """child 모드 — word 파라미터로 특정 개념을 설명하는지 확인."""
+    event = {
+        "body": {
+            "mode": "child",
+            "word": "광합성",
+        }
+    }
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+    body = response["body"]
+    print("\n[child word 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+    assert "answer" in body and body["answer"], "answer가 비어있음"
+    print("\n[PASS] child 모드 word 응답 확인")
+
+
+def test_child_mode_with_image():
+    """child 모드 — 이미지로 RAG 파이프라인이 동작하는지 확인."""
+    event = {
+        "body": {
+            "mode": "child",
+            "image_urls": [TEST_IMAGE_URL],
+        }
+    }
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 200, f"status != 200: {response}"
+    body = response["body"]
+    print("\n[child 이미지 응답]")
+    print(json.dumps(body, ensure_ascii=False, indent=2))
+    assert "answer" in body and body["answer"], "answer가 비어있음"
+    print("\n[PASS] child 모드 이미지 응답 확인")
+
+
+def test_child_mode_missing_inputs_returns_400():
+    """child 모드에서 question·image_urls·word 모두 없으면 400 반환 확인."""
+    event = {"body": {"mode": "child"}}
+    response = lambda_handler(event, None)
+    assert response["statusCode"] == 400, f"400이어야 하는데: {response}"
+    print("\n[PASS] child 모드 입력 없을 때 400 반환 확인")
+
+
+# ──────────────────────────── 진입점 ────────────────────────────
+
+if __name__ == "__main__":
+    event = {"body": {"mode": "child_detect", "image_urls": [TEST_IMAGE_URL], "question":"안녕"}}
+    print(lambda_handler(event, None)["body"]["answer"])

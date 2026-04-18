@@ -20,4 +20,5 @@ __pycache__/
 
 # 기타
 *.md
+*.ipynb
 mytext
