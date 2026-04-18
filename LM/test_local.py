@@ -179,54 +179,5 @@ def test_child_mode_missing_inputs_returns_400():
 # ──────────────────────────── 진입점 ────────────────────────────
 
 if __name__ == "__main__":
-    tests = [
-        ("detect/child_detect", [
-            test_detect_missing_image_returns_400,
-            test_detect_returns_detect,
-            test_child_detect_returns_detect,
-        ]),
-        ("default 모드", [
-            test_default_mode_missing_inputs_returns_400,
-            test_default_mode_with_question,
-            test_default_mode_with_image_and_question,
-        ]),
-        ("child 모드 (RAG)", [
-            test_child_mode_missing_inputs_returns_400,
-            test_child_mode_with_question,
-            test_child_mode_with_word,
-            test_child_mode_with_image,
-        ]),
-    ]
-
-    import argparse
-    parser = argparse.ArgumentParser(description="lambda_handler 로컬 테스트")
-    parser.add_argument(
-        "--mode",
-        choices=["detect", "default", "child", "all"],
-        default="all",
-        help="실행할 테스트 그룹 (default: all)",
-    )
-    args = parser.parse_args()
-
-    group_map = {"detect": 0, "default": 1, "child": 2}
-
-    passed = failed = 0
-    for group_name, group_tests in tests:
-        if args.mode != "all" and group_map.get(args.mode) != tests.index((group_name, group_tests)):
-            continue
-        print("\n" + "=" * 60)
-        print(f"  {group_name}")
-        print("=" * 60)
-        for fn in group_tests:
-            try:
-                fn()
-                passed += 1
-            except Exception as e:
-                print(f"\n[FAIL] {fn.__name__}: {e}")
-                failed += 1
-
-    print("\n" + "=" * 60)
-    print(f"  결과: {passed}개 통과, {failed}개 실패")
-    print("=" * 60)
-    if failed:
-        sys.exit(1)
+    event = {"body": {"mode": "child_detect", "image_urls": [TEST_IMAGE_URL], "question":"판타지 스토리에 대해 작성해줘"}}
+    print(lambda_handler(event, None)["body"]["answer"])
