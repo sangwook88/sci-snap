@@ -179,5 +179,5 @@ def test_child_mode_missing_inputs_returns_400():
 # ──────────────────────────── 진입점 ────────────────────────────
 
 if __name__ == "__main__":
-    event = {"body": {"mode": "child_detect", "image_urls": [TEST_IMAGE_URL], "question":"안녕"}}
+    event = {"body": {"mode": "child_detect", "image_urls": [TEST_IMAGE_URL], "question":"판타지 스토리에 대해 작성해줘"}}
     print(lambda_handler(event, None)["body"]["answer"])

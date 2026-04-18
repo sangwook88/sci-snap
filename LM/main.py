@@ -48,7 +48,7 @@ def lambda_handler(event, context):
     if "O" in is_question:
         pass
     else:
-        return get_answer([{"role": "user", "content": f"이 질문을 과학에 대한 질문으로 유도해줘: {question}"}], conversation_id, user_id, image_urls)
+        return get_answer([{"role": "user", "content": f"이 질문을 과학에 대한 질문으로 유도해줘: {question}\n 예를 들어: 저는 {question}에 대해 말씀드릴 순 없지만 []의 과학에 대해 알려드릴까요?"}], conversation_id, user_id, image_urls)
 
 
     # detect / child_detect: 사물 탐지 + 과학 현상 분석
