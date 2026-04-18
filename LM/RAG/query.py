@@ -281,9 +281,10 @@ def generate_child_response(
             messages.append({"role": "user", "content": user_content})
             messages.append({"role": "assistant", "content": turn["answer"]})
 
-    word_line = f"탐구할 단어: {word}\n" if word else ""
+    words = [w.strip() for w in word.split(",") if w.strip()] if word else []
+    word_line = f"탐구할 단어: {', '.join(words)}\n" if words else ""
     default_question = (
-        f"'{word}'에 대해 어린이가 이해할 수 있게 설명해주세요." if word
+        f"'{', '.join(words)}'에 대해 어린이가 이해할 수 있게 설명해주세요." if words
         else "이 사진에서 어떤 과학을 배울 수 있나요?"
     )
 
@@ -352,9 +353,11 @@ def query(
     else:
         return {"answer": "사진이나 질문을 보내주세요!", "curiosity_hooks": [], "curriculum_refs": []}
 
-    # word가 있으면 RAG 검색 키워드 앞에 삽입
+    # word가 있으면 RAG 검색 키워드 앞에 삽입 (콤마로 구분된 경우 개별 삽입)
     if word:
-        analysis.setdefault("search_keywords_ko", []).insert(0, word)
+        words = [w.strip() for w in word.split(",") if w.strip()]
+        for w in reversed(words):
+            analysis.setdefault("search_keywords_ko", []).insert(0, w)
 
     search_results = hybrid_search(analysis)
 

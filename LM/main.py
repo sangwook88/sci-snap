@@ -42,13 +42,14 @@ def lambda_handler(event, context):
     mode            = body.get("mode") or "default"
     word            = body.get("word") or ""
 
-    # question(이 질문이 과학에 관한 질문이야? O / X로 대답해줘) -> llm -> if "O" in 대답 : 원래대로 else: 해당 질문을 과학에 대한 질문으로 유도해줘
-    is_question = get_answer([{"role": "user", "content": f"이 질문이 과학에 관한 질문이야? O / X로 대답해줘\n {question}"}], conversation_id, user_id, image_urls)["body"]["answer"]
-
-    if "O" in is_question:
-        pass
-    else:
-        return get_answer([{"role": "user", "content": f"이 질문을 과학에 대한 질문으로 유도해줘: {question}\n 예를 들어: 저는 {question}에 대해 말씀드릴 순 없지만 []의 과학에 대해 알려드릴까요?"}], conversation_id, user_id, image_urls)
+    # detect/child 모드이거나 question이 없으면 과학 질문 여부 체크 생략
+    if question and mode not in ("detect", "child_detect", "child"):
+        is_question_resp = get_answer([{"role": "user", "content": f"이 질문이 과학에 관한 질문이야? O / X로 대답해줘\n {question}"}], conversation_id, user_id, image_urls)
+        if is_question_resp["statusCode"] != 200:
+            return is_question_resp
+        is_question = is_question_resp["body"]["answer"]
+        if "O" not in is_question:
+            return get_answer([{"role": "user", "content": f"이 질문을 과학에 대한 질문으로 유도해줘: {question}\n 예를 들어: 저는 {question}에 대해 말씀드릴 순 없지만 []의 과학에 대해 알려드릴까요?"}], conversation_id, user_id, image_urls)
 
 
     # detect / child_detect: 사물 탐지 + 과학 현상 분석
@@ -94,9 +95,14 @@ def lambda_handler(event, context):
         except Exception as e:
             return _response(500, {"error": str(e)})
 
-    # word만 있고 question이 없으면 word를 질문으로 사용
-    if not question and word:
-        question = word
+    # question이 없을 때: 이미지/word 조합으로 자동 질문 구성
+    if not question:
+        if image_urls and word:
+            question = f"이 사진과 '{word}'를 함께 보고 관련된 과학 개념이나 현상을 설명해주세요."
+        elif image_urls:
+            question = "이 사진에서 관찰할 수 있는 과학 개념이나 현상을 설명해주세요."
+        elif word:
+            question = f"'{word}'에 대해 과학적으로 설명해주세요."
 
     if not question and not image_urls:
         return _response(400, {"error": "Question and image_urls are both empty"})
