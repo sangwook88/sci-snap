@@ -282,17 +282,27 @@ def generate_child_response(
             messages.append({"role": "assistant", "content": turn["answer"]})
 
     words = [w.strip() for w in word.split(",") if w.strip()] if word else []
-    word_line = f"탐구할 단어: {', '.join(words)}\n" if words else ""
-    default_question = (
-        f"'{', '.join(words)}'에 대해 어린이가 이해할 수 있게 설명해주세요." if words
-        else "이 사진에서 어떤 과학을 배울 수 있나요?"
-    )
+
+    # word 단독 입력: 사용자가 과학 설명에서 이 단어를 선택한 것 → 이미 기본 개념을 접한 상태
+    word_selected = bool(words) and not question.replace(f"{word}에 대해 더 깊이 알고 싶어요", "").strip()
+    if word_selected:
+        word_context = (
+            f"어린이가 과학 설명을 읽다가 '{', '.join(words)}' 단어를 선택했습니다. "
+            f"기본 개념은 이미 접한 상태이므로, 이 개념의 더 흥미롭고 신기한 면을 탐구해주세요.\n"
+        )
+        default_question = f"'{', '.join(words)}'에서 더 신기하고 재미있는 과학 이야기를 알려주세요."
+    else:
+        word_context = f"탐구할 단어: {', '.join(words)}\n" if words else ""
+        default_question = (
+            f"'{', '.join(words)}'에 대해 어린이가 이해할 수 있게 설명해주세요." if words
+            else "이 사진에서 어떤 과학을 배울 수 있나요?"
+        )
 
     user_prompt = f"""사진 분석 결과:
 - 인식된 사물: {', '.join(analysis.get('objects', []))}
 - 과학 개념: {', '.join(analysis.get('science_concepts', []))}
 - 호기심 질문: {', '.join(analysis.get('curiosity_hooks', []))}
-{word_line}
+{word_context}
 관련 교과서 내용:
 {context}
 
@@ -332,8 +342,9 @@ def query(
     image_urls = image_urls or []
 
     # word가 있으면 effective_question 앞에 붙여 RAG 검색 품질 향상
+    # word 단독: 사용자가 이전 설명에서 선택한 단어 → 심화 탐구 의도
     if word and not question:
-        effective_question = f"{word}에 대해 설명해주세요"
+        effective_question = f"{word}에 대해 더 깊이 알고 싶어요"
     elif word and question:
         effective_question = f"[{word}] {question}"
     else:
