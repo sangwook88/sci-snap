@@ -41,16 +41,19 @@ def lambda_handler(event, context):
     if isinstance(body, str):
         body = json.loads(body)
 
-    question        = body.get("question") or ""
-    if question in ("null", "None"):
-        question = ""
+    def _clean(v):
+        if isinstance(v, str) and v.strip().lower() in ("null", "none", "undefined", ""):
+            return None
+        return v
+
+    question        = _clean(body.get("question")) or ""
     image_urls      = body.get("image_urls") or []
     if isinstance(image_urls, str):
         image_urls = [image_urls] if image_urls else []
-    conversation_id = body.get("conversation_id") or None
-    user_id         = body.get("user_id") or None
-    mode            = body.get("mode") or "default"
-    word            = body.get("word") or ""
+    conversation_id = _clean(body.get("conversation_id"))
+    user_id         = _clean(body.get("user_id"))
+    mode            = _clean(body.get("mode")) or "default"
+    word            = _clean(body.get("word")) or ""
 
     logger.info(
         "request_parsed request_id=%s mode=%s user_id=%s conversation_id=%s question=%r word=%r image_count=%d",
