@@ -1,17 +1,17 @@
 # LM (Language Model) Service
 
-AWS Lambda 위에서 동작하는 AI 질의응답 서비스. `default` / `child` / `detect` / `child_detect` 네 가지 모드를 지원하며, GPT-4o 및 Gemini API 호출과 대화 이력을 Supabase에서 관리한다.
+AWS Lambda 위에서 동작하는 AI 질의응답 서비스. `default` / `child` / `detect` / `child_detect` 네 가지 모드를 지원하며, GPT-4o API 호출과 대화 이력을 Supabase에서 관리한다. `llm/gemini.py`는 Gemini OpenAI 호환 클라이언트와 멀티모달 content 빌더를 제공한다.
 
 ## 아키텍처
 
 ```
 클라이언트
     │
-    │ { question, image_urls, conversation_id, user_id, mode }
+    │ { question, image_urls, conversation_id, user_id, mode, word }
     ▼
 AWS Lambda (main.lambda_handler)
     ├── db/db.py                 ← Supabase DB 접근
-    ├── llm/gemini.py            ← Gemini API (OpenAI 호환)
+    ├── llm/gemini.py            ← Gemini OpenAI 호환 클라이언트 + content 빌더
     ├── RAG/                     ← 교과서 RAG (child 모드)
     └── object_detection/        ← 사물 탐지 + 과학 현상 분석 (detect 모드)
 ```
@@ -20,10 +20,26 @@ AWS Lambda (main.lambda_handler)
 
 | mode | 동작 |
 |---|---|
-| `default` | 대화 이력 + 질문을 GPT-4o에 직접 전달, Markdown 응답 |
-| `child` | RAG 파이프라인 — 교과서 검색 후 어린이 눈높이 응답 |
-| `detect` | GPT-4o Vision으로 사물 탐지 + 과학 현상 좌표 반환 |
-| `child_detect` | detect + 교과서 RAG 기반 어린이 과학 현상 분석 |
+| `default` | SCI-Snap 시스템 프롬프트 + 대화 이력 + 질문을 GPT-4o에 전달, Markdown 응답 |
+| `child` | 의도 분류(science/chat) → 교과서 RAG 파이프라인 → GPT-4o 어린이 눈높이 응답 |
+| `detect` | GPT-4o Vision으로 사물 탐지 후 픽셀 좌표 반환 |
+| `child_detect` | 사물 탐지 + 교과서 RAG 기반 GPT-4o Vision 과학 현상 분석 |
+
+### `child` 모드 RAG 파이프라인
+
+```
+입력 (question / image_urls / word)
+    │
+    ├─ [텍스트 단독] intent 분류 (gpt-4o-mini)
+    │       ├── chat  → 대화 응답 (RAG 생략)
+    │       └── science ↓
+    │
+    ├─ 사진/텍스트 분석 (gpt-4o) → objects, science_concepts, keywords 추출
+    │
+    ├─ 하이브리드 검색 (벡터 + 풀텍스트 RRF, Supabase)
+    │
+    └─ 어린이 눈높이 응답 생성 (gpt-4o)
+```
 
 ## 요청/응답 형식
 
@@ -35,14 +51,19 @@ AWS Lambda (main.lambda_handler)
   "conversation_id": "uuid (없으면 신규 생성)",
   "user_id": "optional",
   "mode": "default | child | detect | child_detect",
-  "word": "탐구할 단어 (child 모드 전용, 선택)"
+  "word": "탐구할 단어 (선택, 모든 모드에서 사용 가능)"
 }
 ```
+
+`word` 동작:
+- `question` 없이 `word`만 전달 → 해당 단어의 심화 탐구 질문으로 자동 구성
+- `question`과 `word` 함께 전달 → 질문에 답하면서 단어 개념을 자연스럽게 연결
 
 **default 응답**
 ```json
 {
   "answer": "...",
+  "image_urls": [],
   "conversation_id": "uuid",
   "curiosity_hooks": ["..."]
 }
@@ -58,9 +79,11 @@ AWS Lambda (main.lambda_handler)
 ```
 
 **detect / child_detect 응답**
+
+탐지된 사물(detect 단계)과 과학 현상(analyze 단계)이 하나의 배열로 반환됩니다.
 ```json
 {
-  "detect": [["사물/현상 이름", [x, y]], ...]
+  "detect": [["사물 또는 현상 이름", [x, y]], ...]
 }
 ```
 
